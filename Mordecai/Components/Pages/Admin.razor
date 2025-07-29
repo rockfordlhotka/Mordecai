@@ -1,0 +1,307 @@
+@page "/admin"
+@using Mordecai.Services
+@using Mordecai.Data
+@inject DatabaseInitializationService DbInitService
+@inject GameService GameService
+
+<PageTitle>Admin - Database Status</PageTitle>
+
+<h1>Database Administration</h1>
+
+@if (status != null)
+{
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Database Connection</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Status:</strong> 
+                        <span class="badge @(status.IsConnected ? "bg-success" : "bg-danger")">
+                            @(status.IsConnected ? "Connected" : "Disconnected")
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Player Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Total Players:</strong> @status.PlayerCount</p>
+                    <p><strong>Online Players:</strong> @status.OnlinePlayerCount</p>
+                    <p><strong>Active Sessions:</strong> @status.ActiveSessionCount</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Game World</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Rooms:</strong> @status.RoomCount</p>
+                    <p><strong>Items:</strong> @status.ItemCount</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Chat System</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Total Messages:</strong> @status.ChatMessageCount</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (rooms.Any())
+    {
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Dungeon Map</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="dungeon-map">
+                            <pre style="font-family: monospace; font-size: 12px; line-height: 1.2;">@GetDungeonMap()</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Room Connections</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Room</th>
+                                    <th>N</th>
+                                    <th>S</th>
+                                    <th>E</th>
+                                    <th>W</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var room in rooms.OrderBy(r => r.Id))
+                                {
+                                    <tr>
+                                        <td><strong>@room.Id</strong></td>
+                                        <td>@(room.NorthRoomId?.ToString() ?? "-")</td>
+                                        <td>@(room.SouthRoomId?.ToString() ?? "-")</td>
+                                        <td>@(room.EastRoomId?.ToString() ?? "-")</td>
+                                        <td>@(room.WestRoomId?.ToString() ?? "-")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Game Rooms</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Exits</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var room in rooms)
+                                {
+                                    <tr>
+                                        <td>@room.Id</td>
+                                        <td><strong>@room.Name</strong></td>
+                                        <td>@room.ShortDescription</td>
+                                        <td>
+                                            @if (room.NorthRoomId.HasValue) { <span class="badge bg-primary me-1">N?@room.NorthRoomId</span> }
+                                            @if (room.SouthRoomId.HasValue) { <span class="badge bg-primary me-1">S?@room.SouthRoomId</span> }
+                                            @if (room.EastRoomId.HasValue) { <span class="badge bg-primary me-1">E?@room.EastRoomId</span> }
+                                            @if (room.WestRoomId.HasValue) { <span class="badge bg-primary me-1">W?@room.WestRoomId</span> }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (players.Any())
+    {
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Players</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Level</th>
+                                    <th>Health</th>
+                                    <th>Current Room</th>
+                                    <th>Status</th>
+                                    <th>Last Login</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var player in players)
+                                {
+                                    <tr>
+                                        <td>@player.Id</td>
+                                        <td><strong>@player.Name</strong></td>
+                                        <td>@player.Level</td>
+                                        <td>@player.Health/@player.MaxHealth</td>
+                                        <td>@(player.CurrentRoom?.Name ?? "Unknown") (@(player.CurrentRoomId ?? 0))</td>
+                                        <td>
+                                            <span class="badge @(player.IsOnline ? "bg-success" : "bg-secondary")">
+                                                @(player.IsOnline ? "Online" : "Offline")
+                                            </span>
+                                        </td>
+                                        <td>@(player.LastLoginAt?.ToString("yyyy-MM-dd HH:mm") ?? "Never")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+else
+{
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+
+<div class="mt-3">
+    <button class="btn btn-primary" @onclick="RefreshStatus">Refresh Status</button>
+    <button class="btn btn-warning" @onclick="ResetDatabase" disabled="@isResetting">
+        @if (isResetting)
+        {
+            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+        }
+        Reset Database
+    </button>
+    <a href="/" class="btn btn-secondary">Back to Home</a>
+</div>
+
+@if (!string.IsNullOrEmpty(resetMessage))
+{
+    <div class="alert @(resetSuccess ? "alert-success" : "alert-danger") mt-3">
+        @resetMessage
+    </div>
+}
+
+@code {
+    private DatabaseStatus? status;
+    private List<Room> rooms = new();
+    private List<Player> players = new();
+    private bool isResetting = false;
+    private string resetMessage = "";
+    private bool resetSuccess = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        status = await DbInitService.GetDatabaseStatusAsync();
+        rooms = await GameService.GetAllRoomsAsync();
+        
+        // Get top 20 players by level for display
+        players = await GameService.GetTopPlayersByLevelAsync(20);
+    }
+
+    private async Task RefreshStatus()
+    {
+        await LoadData();
+        StateHasChanged();
+    }
+
+    private async Task ResetDatabase()
+    {
+        if (!isResetting)
+        {
+            isResetting = true;
+            resetMessage = "";
+            StateHasChanged();
+
+            try
+            {
+                await DbInitService.ResetDatabaseAsync();
+                resetMessage = "Database reset successfully! All data has been cleared and seed data restored.";
+                resetSuccess = true;
+                
+                // Reload data after reset
+                await LoadData();
+            }
+            catch (Exception ex)
+            {
+                resetMessage = $"Database reset failed: {ex.Message}";
+                resetSuccess = false;
+            }
+            finally
+            {
+                isResetting = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private string GetDungeonMap()
+    {
+        var roomDict = rooms.ToDictionary(r => r.Id, r => r);
+        
+        // Simple ASCII map based on the current room layout
+        return @"
+    [6] Guard Tower
+     |
+[5] Crystal   [2] Dark      [4] Armory
+    Cavern  ?  Corridor  ?   
+     |           |
+[7] Underground  |
+    Lake        [1] Entrance
+               (Start)
+     |
+[3] Chamber of Echoes
+
+Legend: [ID] Room Name
+Connections: ? ? ? ? represent paths between rooms
+";
+    }
+}
