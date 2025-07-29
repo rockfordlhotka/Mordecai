@@ -21,7 +21,8 @@ public enum ChatMessageType
     GameResponse,   // Game responses to commands
     Description,    // Room/world descriptions
     Action,         // Action confirmations
-    Error          // Error messages
+    Error,          // Error messages
+    Atmosphere      // Atmospheric/ambient messages (thunder, etc.)
 }
 
 public class ChatService
@@ -253,6 +254,126 @@ public class ChatService
     public List<string> GetConnectedPlayers()
     {
         return _connections.Values.Select(c => c.PlayerName).ToList();
+    }
+
+    /// <summary>
+    /// Broadcasts an atmosphere message to all connected players (used by background services)
+    /// </summary>
+    public async Task BroadcastAtmosphereMessageAsync(ChatMessage message)
+    {
+        // Add to history
+        lock (_historyLock)
+        {
+            _chatHistory.Add(message);
+            
+            // Keep only last 1000 messages
+            if (_chatHistory.Count > 1000)
+            {
+                _chatHistory.RemoveAt(0);
+            }
+        }
+
+        // Save to database (no specific player or room)
+        await SaveMessageToDatabaseAsync(message, null, null);
+
+        // Broadcast to all connected players
+        await BroadcastMessageAsync(message);
+        
+        // Trigger the message received event
+        MessageReceived?.Invoke(message);
+    }
+
+    /// <summary>
+    /// Manually triggers a thunder message (for testing purposes)
+    /// </summary>
+    public async Task TriggerThunderAsync()
+    {
+        var thunderMessages = new[]
+        {
+            "You hear thunder rumbling in the distance.",
+            "A low rumble of thunder echoes through the dungeon.",
+            "Thunder booms somewhere far above the stone halls.",
+            "The sound of distant thunder reverberates through the corridors."
+        };
+
+        var random = new Random();
+        var message = new ChatMessage
+        {
+            Type = ChatMessageType.Atmosphere,
+            Content = thunderMessages[random.Next(thunderMessages.Length)],
+            Timestamp = DateTime.Now,
+            PlayerName = "Nature"
+        };
+
+        await BroadcastAtmosphereMessageAsync(message);
+    }
+
+    /// <summary>
+    /// Broadcasts a message to all players currently in a specific room
+    /// </summary>
+    public async Task BroadcastToRoomAsync(int roomId, ChatMessage message, string? excludeConnectionId = null)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        using var context = scope.ServiceProvider.GetRequiredService<MordecaiDbContext>();
+        
+        // Add a small delay to ensure database consistency
+        await Task.Delay(25);
+        
+        // Get all online players in the specified room with fresh data
+        var playersInRoom = await context.Players
+            .Where(p => p.CurrentRoomId == roomId && p.IsOnline)
+            .ToListAsync();
+
+        if (!playersInRoom.Any()) return;
+
+        // Find connections for players in this room
+        var playersToNotify = _connections.Values
+            .Where(conn => playersInRoom.Any(p => p.Name == conn.PlayerName))
+            .Where(conn => conn.ConnectionId != excludeConnectionId)
+            .ToList();
+
+        // Send message to all players in the room
+        var tasks = new List<Task>();
+        foreach (var connection in playersToNotify)
+        {
+            tasks.Add(Task.Run(() => connection.OnMessageReceived(message)));
+        }
+
+        if (tasks.Any())
+        {
+            await Task.WhenAll(tasks);
+        }
+
+        // Save to database with room information
+        await SaveMessageToDatabaseAsync(message, null, roomId);
+
+        // Add to history
+        lock (_historyLock)
+        {
+            _chatHistory.Add(message);
+            
+            // Keep only last 1000 messages
+            if (_chatHistory.Count > 1000)
+            {
+                _chatHistory.RemoveAt(0);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Broadcasts a movement notification to players in a room
+    /// </summary>
+    public async Task BroadcastMovementAsync(int roomId, string playerName, string message, string? excludeConnectionId = null)
+    {
+        var movementMessage = new ChatMessage
+        {
+            Type = ChatMessageType.Action,
+            Content = message,
+            Timestamp = DateTime.Now,
+            PlayerName = "Game"
+        };
+
+        await BroadcastToRoomAsync(roomId, movementMessage, excludeConnectionId);
     }
 
     private async Task BroadcastMessageAsync(ChatMessage message, string? excludeConnectionId = null)

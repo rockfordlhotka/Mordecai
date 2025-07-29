@@ -5,6 +5,7 @@
 @inject IJSRuntime JSRuntime
 @inject ChatService ChatService
 @inject GameService GameService
+@inject IServiceProvider ServiceProvider
 @rendermode InteractiveServer
 
 <PageTitle>Dungeon - Mordecai</PageTitle>
@@ -176,6 +177,21 @@ else
                 Timestamp = DateTime.Now.AddSeconds(1),
                 PlayerName = "Game"
             });
+
+            // Notify other players in the starting room that this player has arrived
+            using (var scope = ServiceProvider.CreateScope())
+            {
+                var gameService = scope.ServiceProvider.GetRequiredService<GameService>();
+                var player = await gameService.GetPlayerByNameAsync(playerName);
+                if (player?.CurrentRoomId != null)
+                {
+                    await ChatService.BroadcastMovementAsync(
+                        player.CurrentRoomId.Value,
+                        playerName,
+                        $"{playerName} materializes into existence.",
+                        connectionId);
+                }
+            }
             
             StateHasChanged();
         }
@@ -251,7 +267,7 @@ else
                 await OnMessageReceived(new ChatMessage
                 {
                     Type = ChatMessageType.System,
-                    Content = "Chat Commands: /say <message>, /who | Game Commands: help, look [direction], north, south, east, west, inventory",
+                    Content = "Chat Commands: /say <message>, /who, /thunder (test) | Game Commands: help, look [direction], north, south, east, west, inventory",
                     Timestamp = DateTime.Now,
                     PlayerName = "System"
                 });
@@ -283,6 +299,17 @@ else
                         PlayerName = "System"
                     });
                 }
+                break;
+
+            case "/thunder":
+                await ChatService.TriggerThunderAsync();
+                await OnMessageReceived(new ChatMessage
+                {
+                    Type = ChatMessageType.System,
+                    Content = "Thunder manually triggered for all players.",
+                    Timestamp = DateTime.Now,
+                    PlayerName = "System"
+                });
                 break;
 
             default:
@@ -376,10 +403,34 @@ else
                     var movementResult = await GameService.MovePlayerAsync(playerName, moveDirection);
                     if (movementResult.Success)
                     {
-                        // Send movement message
+                        // Send movement confirmation to the moving player first
                         await ChatService.SendGameActionAsync(connectionId!, command, movementResult.Message);
                         
-                        // Send new room description
+                        // Add a very small delay to ensure database synchronization
+                        await Task.Delay(100);
+                        
+                        // Notify players in the previous room that this player left
+                        if (movementResult.PreviousRoom != null)
+                        {
+                            await ChatService.BroadcastMovementAsync(
+                                movementResult.PreviousRoom.Id, 
+                                playerName, 
+                                $"{playerName} leaves {moveDirection}.",
+                                connectionId);
+                        }
+                        
+                        // Notify players in the new room that this player entered
+                        if (movementResult.NewRoom != null)
+                        {
+                            var oppositeDirection = GetOppositeDirection(moveDirection);
+                            await ChatService.BroadcastMovementAsync(
+                                movementResult.NewRoom.Id, 
+                                playerName, 
+                                $"{playerName} arrives from the {oppositeDirection}.",
+                                connectionId);
+                        }
+
+                        // Send new room description to the moving player
                         var newRoomDescription = await GameService.GetRoomDescriptionAsync(playerName);
                         await OnMessageReceived(new ChatMessage
                         {
@@ -422,6 +473,7 @@ else
             ChatMessageType.GameResponse => "game-response",
             ChatMessageType.Chat => "chat",
             ChatMessageType.Error => "error",
+            ChatMessageType.Atmosphere => "atmosphere",
             _ => ""
         };
     }
@@ -429,6 +481,18 @@ else
     private string GetInputPlaceholder()
     {
         return isProcessing ? "Processing..." : "Enter command or /say <message> to chat...";
+    }
+
+    private string GetOppositeDirection(string direction)
+    {
+        return direction.ToLower() switch
+        {
+            "north" => "south",
+            "south" => "north",
+            "east" => "west",
+            "west" => "east",
+            _ => "somewhere"
+        };
     }
 
     public async ValueTask DisposeAsync()

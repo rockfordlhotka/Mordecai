@@ -50,8 +50,12 @@ public class GameService
         var player = await _context.Players.FindAsync(playerId);
         if (player != null)
         {
+            var oldRoomId = player.CurrentRoomId;
             player.CurrentRoomId = roomId;
             await _context.SaveChangesAsync();
+            
+            // Add debug logging
+            Console.WriteLine($"Player {playerId} moved from room {oldRoomId} to room {roomId}");
         }
     }
 
@@ -59,7 +63,21 @@ public class GameService
     public async Task<Room?> GetRoomAsync(int roomId)
     {
         return await _context.Rooms
-            .Include(r => r.PlayersInRoom)
+            .Include(r => r.PlayersInRoom.Where(p => p.IsOnline))
+            .FirstOrDefaultAsync(r => r.Id == roomId);
+    }
+
+    /// <summary>
+    /// Gets room data with fresh player information, useful for ensuring consistency
+    /// </summary>
+    public async Task<Room?> GetRoomWithFreshDataAsync(int roomId)
+    {
+        // Clear any tracked entities to ensure fresh data
+        _context.ChangeTracker.Clear();
+        
+        return await _context.Rooms
+            .Include(r => r.PlayersInRoom.Where(p => p.IsOnline))
+            .AsNoTracking() // Ensure no caching
             .FirstOrDefaultAsync(r => r.Id == roomId);
     }
 
@@ -99,7 +117,8 @@ public class GameService
             return new MovementResult { Success = false, Message = "Player not found." };
         }
 
-        var currentRoom = player.CurrentRoom ?? await GetRoomAsync(player.CurrentRoomId ?? 1);
+        // Get fresh room data
+        var currentRoom = await GetRoomAsync(player.CurrentRoomId ?? 1);
         if (currentRoom == null)
         {
             return new MovementResult { Success = false, Message = "Current location unknown." };
@@ -120,15 +139,28 @@ public class GameService
             };
         }
 
-        // Move the player
+        // Get players currently in both rooms (before the move)
+        var playersInCurrentRoom = currentRoom.PlayersInRoom?.Where(p => p.Name != playerName && p.IsOnline).ToList() ?? new List<Player>();
+        var playersInTargetRoom = targetRoom.PlayersInRoom?.Where(p => p.IsOnline).ToList() ?? new List<Player>();
+
+        // Move the player and ensure the transaction is completed
         await UpdatePlayerLocationAsync(player.Id, targetRoom.Id);
+
+        // Add a small delay to ensure database consistency across different contexts
+        await Task.Delay(50);
+
+        // Get fresh room data after the move to ensure we have the updated state
+        var refreshedTargetRoom = await GetRoomAsync(targetRoom.Id);
+        var refreshedCurrentRoom = await GetRoomAsync(currentRoom.Id);
 
         return new MovementResult
         {
             Success = true,
             Message = $"You move {direction} to {targetRoom.Name}.",
-            NewRoom = targetRoom,
-            PreviousRoom = currentRoom
+            NewRoom = refreshedTargetRoom,
+            PreviousRoom = refreshedCurrentRoom,
+            PlayersInNewRoom = playersInTargetRoom,
+            PlayersInPreviousRoom = playersInCurrentRoom
         };
     }
 
@@ -137,7 +169,8 @@ public class GameService
         var player = await GetPlayerByNameAsync(playerName);
         if (player == null) return "You are nowhere.";
 
-        var room = player.CurrentRoom ?? await GetRoomAsync(player.CurrentRoomId ?? 1);
+        // Use the fresh data method to ensure we see current players
+        var room = await GetRoomWithFreshDataAsync(player.CurrentRoomId ?? 1);
         if (room == null) return "You are in an unknown location.";
 
         var description = room.Description;
@@ -153,8 +186,11 @@ public class GameService
             description += "\n\nThere are no obvious exits.";
         }
 
-        // Add information about other players in the room
-        var otherPlayers = room.PlayersInRoom?.Where(p => p.Name != playerName && p.IsOnline).ToList() ?? new List<Player>();
+        // Get other players in the room with fresh data
+        var otherPlayers = room.PlayersInRoom?
+            .Where(p => p.Name != playerName && p.IsOnline)
+            .ToList() ?? new List<Player>();
+            
         if (otherPlayers.Any())
         {
             var playerNames = string.Join(", ", otherPlayers.Select(p => p.Name));
@@ -177,7 +213,8 @@ public class GameService
         var player = await GetPlayerByNameAsync(playerName);
         if (player == null) return "You are nowhere.";
 
-        var currentRoom = player.CurrentRoom ?? await GetRoomAsync(player.CurrentRoomId ?? 1);
+        // Always get fresh room data
+        var currentRoom = await GetRoomAsync(player.CurrentRoomId ?? 1);
         if (currentRoom == null) return "You are in an unknown location.";
 
         var targetRoom = await GetRoomInDirectionAsync(currentRoom.Id, direction);
@@ -186,20 +223,30 @@ public class GameService
             return $"You cannot see anything to the {direction}.";
         }
 
-        // Return the short description of the room in that direction
+        // Build the description with room name
         var description = $"Looking {direction}, you see: {targetRoom.Name}";
+        
+        // Add short description if available
         if (!string.IsNullOrWhiteSpace(targetRoom.ShortDescription))
         {
-            description += $" - {targetRoom.ShortDescription}";
+            description += $"\n{targetRoom.ShortDescription}";
         }
 
-        // Check if there are players in that room (need to refresh room data to get current players)
+        // Always get fresh room data to see current players
         var refreshedTargetRoom = await GetRoomAsync(targetRoom.Id);
         var playersInRoom = refreshedTargetRoom?.PlayersInRoom?.Where(p => p.IsOnline).ToList() ?? new List<Player>();
+        
         if (playersInRoom.Any())
         {
             var playerNames = string.Join(", ", playersInRoom.Select(p => p.Name));
-            description += $" You can see {playerNames} there.";
+            if (playersInRoom.Count == 1)
+            {
+                description += $"\nYou can see {playerNames} there.";
+            }
+            else
+            {
+                description += $"\nYou can see {playerNames} there.";
+            }
         }
 
         return description;
@@ -354,4 +401,6 @@ public class MovementResult
     public string Message { get; set; } = "";
     public Room? NewRoom { get; set; }
     public Room? PreviousRoom { get; set; }
+    public List<Player> PlayersInNewRoom { get; set; } = new();
+    public List<Player> PlayersInPreviousRoom { get; set; } = new();
 }

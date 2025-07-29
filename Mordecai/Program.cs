@@ -5,6 +5,11 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure logging for better visibility of background services
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.SetMinimumLevel(LogLevel.Information);
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -18,6 +23,9 @@ builder.Services.AddDbContext<MordecaiDbContext>(options =>
 builder.Services.AddSingleton<ChatService>();
 builder.Services.AddScoped<GameService>();
 builder.Services.AddScoped<DatabaseInitializationService>();
+
+// Add background services
+builder.Services.AddHostedService<AtmosphereService>();
 
 var app = builder.Build();
 

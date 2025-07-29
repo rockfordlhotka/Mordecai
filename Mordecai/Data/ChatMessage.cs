@@ -37,5 +37,6 @@ public enum ChatMessageType
     GameResponse,   // Game responses to commands
     Description,    // Room/world descriptions
     Action,         // Action confirmations
-    Error          // Error messages
+    Error,          // Error messages
+    Atmosphere      // Atmospheric/ambient messages (thunder, etc.)
 }

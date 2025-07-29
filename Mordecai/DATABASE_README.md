@@ -47,6 +47,8 @@ The initial world contains 7 connected rooms:
 - **Persistent Player Location**: Players resume at their last location
 - **Real-time Movement**: Other players see when someone enters/leaves rooms
 - **Dynamic Room Descriptions**: Shows exits and other players
+- **Multiplayer Visibility**: Players can see each other in the same room with real-time updates
+- **Movement Notifications**: Players are notified when others enter or leave their room
 - **Inventory System**: Stackable and non-stackable items
 - **Chat Integration**: Messages tied to rooms and players
 - **Session Tracking**: Complete login/logout history
