@@ -1,0 +1,347 @@
+@page "/dungeon"
+@using Mordecai.Services
+@layout DungeonLayout
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+@inject ChatService ChatService
+@rendermode InteractiveServer
+
+<PageTitle>Dungeon - Mordecai</PageTitle>
+
+<link href="@Assets["css/dungeon.css"]" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet" />
+
+@if (!isPlayerConnected)
+{
+    <div class="login-container">
+        <a href="/" class="login-back-button" title="Return to main menu">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/>
+            </svg>
+        </a>
+        
+        <div class="banner">
+            <div class="wood-grain"></div>
+            <div class="title">Mordecai</div>
+            <div class="moss-accent"></div>
+            <div class="corner-vine"></div>
+        </div>
+        
+        <div class="login-form">
+            <h2>Enter the Dungeon</h2>
+            <div class="input-group">
+                <input @bind="playerName" 
+                       @onkeyup="HandleLoginKeyUp"
+                       @ref="loginInputElement"
+                       type="text" 
+                       class="player-name-input" 
+                       placeholder="Enter your character name..." 
+                       maxlength="20" />
+                <button @onclick="JoinDungeon" class="join-button" disabled="@(string.IsNullOrWhiteSpace(playerName))">
+                    Enter Dungeon
+                </button>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="dungeon-container">
+        <div class="game-header">
+            <div class="header-left">
+                <a href="/" class="back-button" title="Return to main menu">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/>
+                    </svg>
+                </a>
+                <div class="player-info">
+                    <span class="player-name">@playerName</span>
+                    <span class="player-count">(@connectedPlayers.Count players online)</span>
+                </div>
+            </div>
+            <div class="connected-players">
+                @foreach (var player in connectedPlayers)
+                {
+                    <span class="player-tag">@player</span>
+                }
+            </div>
+        </div>
+        
+        <div class="game-output" id="gameOutput">
+            @foreach (var message in gameMessages)
+            {
+                <div class="message @GetMessageClass(message.Type)">
+                    <span class="timestamp">[@message.Timestamp.ToString("HH:mm:ss")]</span>
+                    @if (message.Type == ChatMessageType.Chat)
+                    {
+                        <span class="player-name-tag">@message.PlayerName:</span>
+                    }
+                    <span class="content">@message.Content</span>
+                </div>
+            }
+        </div>
+        
+        <div class="input-container">
+            <div class="input-group">
+                <input @bind="currentInput" 
+                       @onkeyup="HandleKeyUp"
+                       @ref="inputElement"
+                       type="text" 
+                       class="command-input" 
+                       placeholder="@GetInputPlaceholder()" 
+                       maxlength="200" />
+                <button @onclick="SendMessage" class="send-button" disabled="@isProcessing">
+                    <svg class="arrow-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M2,21L23,12L2,3V10L17,12L2,14V21Z" />
+                    </svg>
+                </button>
+            </div>
+            <div class="input-help">
+                <span>Commands: /help, /who, /say &lt;message&gt; | Game: look, north, south, east, west, inventory</span>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string currentInput = "";
+    private string playerName = "";
+    private bool isProcessing = false;
+    private bool isPlayerConnected = false;
+    private ElementReference inputElement;
+    private ElementReference loginInputElement;
+    private List<ChatMessage> gameMessages = new();
+    private List<string> connectedPlayers = new();
+    private string? connectionId;
+
+    protected override void OnInitialized()
+    {
+        // Player will need to connect first
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !isPlayerConnected)
+        {
+            await loginInputElement.FocusAsync();
+        }
+        else if (isPlayerConnected)
+        {
+            await inputElement.FocusAsync();
+        }
+        
+        // Auto-scroll to bottom
+        await JSRuntime.InvokeVoidAsync("scrollToBottom", "gameOutput");
+    }
+
+    private async Task HandleLoginKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(playerName))
+        {
+            await JoinDungeon();
+        }
+    }
+
+    private async Task JoinDungeon()
+    {
+        if (string.IsNullOrWhiteSpace(playerName))
+            return;
+
+        playerName = playerName.Trim();
+        
+        try
+        {
+            connectionId = await ChatService.ConnectPlayerAsync(playerName, OnMessageReceived);
+            isPlayerConnected = true;
+            
+            // Update connected players list
+            connectedPlayers = ChatService.GetConnectedPlayers();
+            
+            // Add welcome message
+            await OnMessageReceived(new ChatMessage
+            {
+                Type = ChatMessageType.System,
+                Content = "Welcome to the Dungeon of Mordecai! You are now connected to the multiplayer realm.",
+                Timestamp = DateTime.Now,
+                PlayerName = "System"
+            });
+            
+            await OnMessageReceived(new ChatMessage
+            {
+                Type = ChatMessageType.Description,
+                Content = "You find yourself standing at the entrance of a dark, mysterious dungeon. Ancient stone walls stretch before you, carved with strange runes that seem to glow faintly in the dim light.",
+                Timestamp = DateTime.Now.AddSeconds(1),
+                PlayerName = "Game"
+            });
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            // Handle connection error
+            Console.WriteLine($"Failed to connect: {ex.Message}");
+        }
+    }
+
+    private async Task OnMessageReceived(ChatMessage message)
+    {
+        await InvokeAsync(() =>
+        {
+            gameMessages.Add(message);
+            
+            // Update connected players if it's a join/leave message
+            if (message.Type == ChatMessageType.System)
+            {
+                connectedPlayers = ChatService.GetConnectedPlayers();
+            }
+            
+            StateHasChanged();
+        });
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !isProcessing)
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(currentInput) || isProcessing || connectionId == null)
+            return;
+
+        isProcessing = true;
+        var input = currentInput.Trim();
+        currentInput = "";
+        StateHasChanged();
+
+        try
+        {
+            // Check if it's a chat command
+            if (input.StartsWith("/"))
+            {
+                await ProcessChatCommand(input);
+            }
+            else
+            {
+                // It's a game command
+                await ProcessGameCommand(input);
+            }
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ProcessChatCommand(string command)
+    {
+        var parts = command.Split(' ', 2);
+        var cmd = parts[0].ToLower();
+
+        switch (cmd)
+        {
+            case "/help":
+                await OnMessageReceived(new ChatMessage
+                {
+                    Type = ChatMessageType.System,
+                    Content = "Chat Commands: /say <message>, /who | Game Commands: help, look, north, south, east, west, inventory",
+                    Timestamp = DateTime.Now,
+                    PlayerName = "System"
+                });
+                break;
+
+            case "/who":
+                var players = string.Join(", ", connectedPlayers);
+                await OnMessageReceived(new ChatMessage
+                {
+                    Type = ChatMessageType.System,
+                    Content = $"Players online: {players}",
+                    Timestamp = DateTime.Now,
+                    PlayerName = "System"
+                });
+                break;
+
+            case "/say":
+                if (parts.Length > 1)
+                {
+                    await ChatService.SendMessageAsync(connectionId!, parts[1], ChatMessageType.Chat);
+                }
+                else
+                {
+                    await OnMessageReceived(new ChatMessage
+                    {
+                        Type = ChatMessageType.Error,
+                        Content = "Usage: /say <message>",
+                        Timestamp = DateTime.Now,
+                        PlayerName = "System"
+                    });
+                }
+                break;
+
+            default:
+                await OnMessageReceived(new ChatMessage
+                {
+                    Type = ChatMessageType.Error,
+                    Content = $"Unknown command: {cmd}. Type /help for available commands.",
+                    Timestamp = DateTime.Now,
+                    PlayerName = "System"
+                });
+                break;
+        }
+    }
+
+    private async Task ProcessGameCommand(string command)
+    {
+        var response = command.ToLower() switch
+        {
+            "help" => "Available commands: look, north, south, east, west, inventory",
+            "look" => "You are in a dimly lit stone corridor. The walls are damp and covered in moss. To the north, you can see a faint light. To the south, the passage disappears into darkness.",
+            "north" or "south" or "east" or "west" => $"You move {command}... You find yourself in a new chamber. The air grows colder as you advance deeper into the dungeon.",
+            "inventory" => "Your inventory: Rusty sword, Small health potion, Torch",
+            _ => $"Unknown command: '{command}'. Type 'help' for available commands."
+        };
+
+        await ChatService.SendGameActionAsync(connectionId!, command, response);
+    }
+
+    private string GetMessageClass(ChatMessageType type)
+    {
+        return type switch
+        {
+            ChatMessageType.System => "system",
+            ChatMessageType.Description => "description",
+            ChatMessageType.Action => "action",
+            ChatMessageType.UserCommand => "user-command",
+            ChatMessageType.GameResponse => "game-response",
+            ChatMessageType.Chat => "chat",
+            ChatMessageType.Error => "error",
+            _ => ""
+        };
+    }
+
+    private string GetInputPlaceholder()
+    {
+        return isProcessing ? "Processing..." : "Enter command or /say <message> to chat...";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (connectionId != null)
+        {
+            await ChatService.DisconnectPlayerAsync(connectionId);
+        }
+    }
+}
+
+<script>
+    window.scrollToBottom = (elementId) => {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.scrollTop = element.scrollHeight;
+        }
+    };
+</script>

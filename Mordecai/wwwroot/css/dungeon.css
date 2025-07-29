@@ -1,0 +1,514 @@
+/* Global resets for dungeon page */
+body, html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* Dungeon page specific styles */
+
+/* Login Screen */
+.login-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: #e0e6ed;
+    font-family: 'Courier New', monospace;
+    z-index: 1000;
+    gap: 2rem;
+}
+
+.login-back-button {
+    position: absolute;
+    top: 2rem;
+    left: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: rgba(45, 24, 16, 0.8);
+    border: 2px solid rgba(101, 67, 33, 0.7);
+    border-radius: 8px;
+    color: #e0e6ed;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.login-back-button:hover {
+    background: rgba(74, 124, 42, 0.8);
+    border-color: #4a7c2a;
+    color: #fff;
+    transform: translateX(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.login-back-button svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* Mordecai Banner Styles */
+.banner {
+    width: 800px;
+    height: 200px;
+    background: linear-gradient(135deg, #2d1810 0%, #4a2c1a 50%, #3d251a 100%);
+    border: 8px solid #654321;
+    border-radius: 15px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 50px rgba(0, 0, 0, 0.3);
+    margin-bottom: 2rem;
+}
+
+.banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 20% 30%, rgba(101, 67, 33, 0.3) 0%, transparent 50%), 
+                radial-gradient(circle at 80% 70%, rgba(139, 69, 19, 0.2) 0%, transparent 50%), 
+                linear-gradient(45deg, transparent 48%, rgba(160, 82, 45, 0.1) 49%, rgba(160, 82, 45, 0.1) 51%, transparent 52%);
+    background-size: 200px 200px, 150px 150px, 20px 20px;
+}
+
+.wood-grain {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(139, 69, 19, 0.1) 2px, rgba(139, 69, 19, 0.1) 4px);
+    opacity: 0.6;
+}
+
+.title {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Cinzel', serif;
+    font-size: 72px;
+    font-weight: 700;
+    color: #2d5016;
+    text-shadow: 3px 3px 0px #1a3009, 6px 6px 10px rgba(0, 0, 0, 0.8), 0 0 20px rgba(45, 80, 22, 0.5);
+    letter-spacing: 4px;
+    z-index: 10;
+}
+
+.title::before {
+    content: 'Mordecai';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    color: #4a7c2a;
+    z-index: -1;
+    text-shadow: none;
+}
+
+.moss-accent {
+    position: absolute;
+    bottom: 10px;
+    left: 20px;
+    right: 20px;
+    height: 20px;
+    background: linear-gradient(90deg, rgba(34, 139, 34, 0.3) 0%, rgba(85, 107, 47, 0.4) 25%, rgba(107, 142, 35, 0.3) 50%, rgba(85, 107, 47, 0.4) 75%, rgba(34, 139, 34, 0.3) 100%);
+    border-radius: 10px;
+    opacity: 0.7;
+}
+
+.corner-vine {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle, rgba(34, 139, 34, 0.4) 30%, transparent 70%);
+    border-radius: 50%;
+}
+
+.corner-vine::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 50px;
+    height: 50px;
+    background: radial-gradient(circle, rgba(85, 107, 47, 0.3) 40%, transparent 70%);
+    border-radius: 50%;
+}
+
+/* Responsive banner for smaller screens */
+@media (max-width: 850px) {
+    .banner {
+        width: 90vw;
+        max-width: 600px;
+        height: 150px;
+    }
+    
+    .title {
+        font-size: 48px;
+        letter-spacing: 2px;
+    }
+}
+
+@media (max-width: 600px) {
+    .banner {
+        height: 120px;
+    }
+    
+    .title {
+        font-size: 36px;
+        letter-spacing: 1px;
+    }
+}
+
+.login-form {
+    background: rgba(45, 24, 16, 0.8);
+    backdrop-filter: blur(10px);
+    padding: 2rem;
+    border-radius: 12px;
+    border: 2px solid rgba(101, 67, 33, 0.5);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(101, 67, 33, 0.1);
+    text-align: center;
+    min-width: 400px;
+    max-width: 500px;
+}
+
+.login-form h2 {
+    margin-bottom: 1.5rem;
+    color: #4a7c2a;
+    font-family: 'Cinzel', serif;
+    font-size: 1.8rem;
+    font-weight: 600;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    letter-spacing: 1px;
+}
+
+.player-name-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: rgba(45, 24, 16, 0.6);
+    border: 2px solid rgba(101, 67, 33, 0.7);
+    border-radius: 8px;
+    color: #e0e6ed;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.3s ease;
+    margin-right: 0.5rem;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.player-name-input:focus {
+    border-color: #4a7c2a;
+    background: rgba(45, 24, 16, 0.8);
+    box-shadow: 0 0 0 3px rgba(74, 124, 42, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.3);
+    color: #fff;
+}
+
+.player-name-input::placeholder {
+    color: rgba(224, 230, 237, 0.6);
+}
+
+.join-button {
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #4a7c2a, #2d5016);
+    border: 2px solid #2d5016;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    font-family: 'Cinzel', serif;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.join-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #2d5016, #1a3009);
+    border-color: #1a3009;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(74, 124, 42, 0.3);
+}
+
+.join-button:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.join-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Main Game Interface */
+.dungeon-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: #e0e6ed;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    z-index: 1000;
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.5);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.back-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: #e0e6ed;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.back-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: #60a5fa;
+    color: #60a5fa;
+    transform: translateX(-2px);
+}
+
+.back-button svg {
+    width: 20px;
+    height: 20px;
+}
+
+.player-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.player-name {
+    color: #4ade80;
+    font-weight: bold;
+}
+
+.player-count {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+}
+
+.connected-players {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.player-tag {
+    background: rgba(96, 165, 250, 0.2);
+    color: #60a5fa;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+.game-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 1rem;
+    margin-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.game-output::-webkit-scrollbar {
+    width: 8px;
+}
+
+.game-output::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.game-output::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+}
+
+.message {
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.message .timestamp {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
+    margin-right: 0.5rem;
+}
+
+.message .player-name-tag {
+    color: #60a5fa;
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+.message.system .content {
+    color: #4ade80;
+    font-weight: bold;
+}
+
+.message.description .content {
+    color: #e0e6ed;
+    font-style: italic;
+}
+
+.message.action .content {
+    color: #fbbf24;
+}
+
+.message.user-command .content {
+    color: #60a5fa;
+    font-weight: bold;
+}
+
+.message.game-response .content {
+    color: #e0e6ed;
+    margin-left: 1rem;
+}
+
+.message.chat .content {
+    color: #fbbf24;
+}
+
+.message.error .content {
+    color: #f87171;
+    font-weight: bold;
+}
+
+.input-container {
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.input-group {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    justify-content: center;
+}
+
+.input-help {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+    font-style: italic;
+}
+
+.command-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: #e0e6ed;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.command-input:focus {
+    border-color: #60a5fa;
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+}
+
+.command-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.send-button {
+    padding: 0.75rem;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    min-width: 48px;
+    height: 48px;
+}
+
+.send-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.send-button:active {
+    transform: translateY(0);
+}
+
+.send-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.arrow-icon {
+    width: 20px;
+    height: 20px;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
