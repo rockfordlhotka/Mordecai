@@ -1,34 +1,17 @@
 @page "/dungeon"
 @using Mordecai.Services
-@layout DungeonLayout
 @implements IAsyncDisposable
 @inject IJSRuntime JSRuntime
 @inject ChatService ChatService
-@inject GameService GameService
-@inject IServiceProvider ServiceProvider
 @rendermode InteractiveServer
 
 <PageTitle>Dungeon - Mordecai</PageTitle>
 
-<link href="@Assets["css/dungeon.css"]" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet" />
+<link href="~/css/dungeon.css" rel="stylesheet" />
 
 @if (!isPlayerConnected)
 {
     <div class="login-container">
-        <a href="/" class="login-back-button" title="Return to main menu">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/>
-            </svg>
-        </a>
-        
-        <div class="banner">
-            <div class="wood-grain"></div>
-            <div class="title">Mordecai</div>
-            <div class="moss-accent"></div>
-            <div class="corner-vine"></div>
-        </div>
-        
         <div class="login-form">
             <h2>Enter the Dungeon</h2>
             <div class="input-group">
@@ -50,16 +33,9 @@ else
 {
     <div class="dungeon-container">
         <div class="game-header">
-            <div class="header-left">
-                <a href="/" class="back-button" title="Return to main menu">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z"/>
-                    </svg>
-                </a>
-                <div class="player-info">
-                    <span class="player-name">@playerName</span>
-                    <span class="player-count">(@connectedPlayers.Count players online)</span>
-                </div>
+            <div class="player-info">
+                <span class="player-name">@playerName</span>
+                <span class="player-count">(@connectedPlayers.Count players online)</span>
             </div>
             <div class="connected-players">
                 @foreach (var player in connectedPlayers)
@@ -99,7 +75,7 @@ else
                 </button>
             </div>
             <div class="input-help">
-                <span>Commands: /help, /who, /say &lt;message&gt; | Game: look [direction], north, south, east, west, inventory</span>
+                <span>Commands: /help, /who, /say &lt;message&gt; | Game: look, north, south, east, west, inventory</span>
             </div>
         </div>
     </div>
@@ -168,30 +144,13 @@ else
                 PlayerName = "System"
             });
             
-            // Get the player's current room description
-            var roomDescription = await GameService.GetRoomDescriptionAsync(playerName);
             await OnMessageReceived(new ChatMessage
             {
                 Type = ChatMessageType.Description,
-                Content = roomDescription,
+                Content = "You find yourself standing at the entrance of a dark, mysterious dungeon. Ancient stone walls stretch before you, carved with strange runes that seem to glow faintly in the dim light.",
                 Timestamp = DateTime.Now.AddSeconds(1),
                 PlayerName = "Game"
             });
-
-            // Notify other players in the starting room that this player has arrived
-            using (var scope = ServiceProvider.CreateScope())
-            {
-                var gameService = scope.ServiceProvider.GetRequiredService<GameService>();
-                var player = await gameService.GetPlayerByNameAsync(playerName);
-                if (player?.CurrentRoomId != null)
-                {
-                    await ChatService.BroadcastMovementAsync(
-                        player.CurrentRoomId.Value,
-                        playerName,
-                        $"{playerName} materializes into existence.",
-                        connectionId);
-                }
-            }
             
             StateHasChanged();
         }
@@ -267,7 +226,7 @@ else
                 await OnMessageReceived(new ChatMessage
                 {
                     Type = ChatMessageType.System,
-                    Content = "Chat Commands: /say <message>, /who, /thunder (test) | Game Commands: help, look [direction], north, south, east, west, inventory",
+                    Content = "Chat Commands: /say <message>, /who | Game Commands: help, look, north, south, east, west, inventory",
                     Timestamp = DateTime.Now,
                     PlayerName = "System"
                 });
@@ -301,17 +260,6 @@ else
                 }
                 break;
 
-            case "/thunder":
-                await ChatService.TriggerThunderAsync();
-                await OnMessageReceived(new ChatMessage
-                {
-                    Type = ChatMessageType.System,
-                    Content = "Thunder manually triggered for all players.",
-                    Timestamp = DateTime.Now,
-                    PlayerName = "System"
-                });
-                break;
-
             default:
                 await OnMessageReceived(new ChatMessage
                 {
@@ -326,140 +274,16 @@ else
 
     private async Task ProcessGameCommand(string command)
     {
-        var parts = command.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-        var cmd = parts[0].ToLower();
-        string response;
-
-        try
+        var response = command.ToLower() switch
         {
-            switch (cmd)
-            {
-                case "help":
-                    response = "Available commands: look [direction], north, south, east, west, inventory, examine";
-                    break;
+            "help" => "Available commands: look, north, south, east, west, inventory",
+            "look" => "You are in a dimly lit stone corridor. The walls are damp and covered in moss. To the north, you can see a faint light. To the south, the passage disappears into darkness.",
+            "north" or "south" or "east" or "west" => $"You move {command}... You find yourself in a new chamber. The air grows colder as you advance deeper into the dungeon.",
+            "inventory" => "Your inventory: Rusty sword, Small health potion, Torch",
+            _ => $"Unknown command: '{command}'. Type 'help' for available commands."
+        };
 
-                case "look":
-                case "l":
-                    if (parts.Length > 1)
-                    {
-                        // Directional look: "look north", "look east", etc.
-                        var lookDirection = parts[1].ToLower();
-                        
-                        // Normalize direction names
-                        lookDirection = lookDirection switch
-                        {
-                            "n" => "north",
-                            "s" => "south",
-                            "e" => "east",
-                            "w" => "west",
-                            "north" => "north",
-                            "south" => "south", 
-                            "east" => "east",
-                            "west" => "west",
-                            _ => lookDirection
-                        };
-
-                        // Validate direction
-                        if (new[] { "north", "south", "east", "west" }.Contains(lookDirection))
-                        {
-                            response = await GameService.LookInDirectionAsync(playerName, lookDirection);
-                        }
-                        else
-                        {
-                            response = $"You cannot look '{parts[1]}'. Try: look north, look south, look east, or look west.";
-                        }
-                    }
-                    else
-                    {
-                        // Regular look at current room
-                        response = await GameService.GetRoomDescriptionAsync(playerName);
-                    }
-                    break;
-
-                case "inventory":
-                case "inv":
-                case "i":
-                    response = await GameService.GetPlayerInventoryAsync(playerName);
-                    break;
-
-                case "north":
-                case "n":
-                case "south":
-                case "s":
-                case "east":
-                case "e":
-                case "west":
-                case "w":
-                    // Normalize direction names
-                    var moveDirection = cmd switch
-                    {
-                        "n" => "north",
-                        "s" => "south",
-                        "e" => "east",
-                        "w" => "west",
-                        _ => cmd
-                    };
-
-                    var movementResult = await GameService.MovePlayerAsync(playerName, moveDirection);
-                    if (movementResult.Success)
-                    {
-                        // Send movement confirmation to the moving player first
-                        await ChatService.SendGameActionAsync(connectionId!, command, movementResult.Message);
-                        
-                        // Add a very small delay to ensure database synchronization
-                        await Task.Delay(100);
-                        
-                        // Notify players in the previous room that this player left
-                        if (movementResult.PreviousRoom != null)
-                        {
-                            await ChatService.BroadcastMovementAsync(
-                                movementResult.PreviousRoom.Id, 
-                                playerName, 
-                                $"{playerName} leaves {moveDirection}.",
-                                connectionId);
-                        }
-                        
-                        // Notify players in the new room that this player entered
-                        if (movementResult.NewRoom != null)
-                        {
-                            var oppositeDirection = GetOppositeDirection(moveDirection);
-                            await ChatService.BroadcastMovementAsync(
-                                movementResult.NewRoom.Id, 
-                                playerName, 
-                                $"{playerName} arrives from the {oppositeDirection}.",
-                                connectionId);
-                        }
-
-                        // Send new room description to the moving player
-                        var newRoomDescription = await GameService.GetRoomDescriptionAsync(playerName);
-                        await OnMessageReceived(new ChatMessage
-                        {
-                            Type = ChatMessageType.Description,
-                            Content = newRoomDescription,
-                            Timestamp = DateTime.Now.AddMilliseconds(500),
-                            PlayerName = "Game"
-                        });
-                        return; // Early return to avoid duplicate messaging
-                    }
-                    else
-                    {
-                        response = movementResult.Message;
-                    }
-                    break;
-
-                default:
-                    response = $"Unknown command: '{command}'. Type 'help' for available commands.";
-                    break;
-            }
-
-            await ChatService.SendGameActionAsync(connectionId!, command, response);
-        }
-        catch (Exception ex)
-        {
-            response = "An error occurred while processing your command.";
-            Console.WriteLine($"Error processing game command '{command}': {ex.Message}");
-            await ChatService.SendGameActionAsync(connectionId!, command, response);
-        }
+        await ChatService.SendGameActionAsync(connectionId!, command, response);
     }
 
     private string GetMessageClass(ChatMessageType type)
@@ -473,7 +297,6 @@ else
             ChatMessageType.GameResponse => "game-response",
             ChatMessageType.Chat => "chat",
             ChatMessageType.Error => "error",
-            ChatMessageType.Atmosphere => "atmosphere",
             _ => ""
         };
     }
@@ -481,18 +304,6 @@ else
     private string GetInputPlaceholder()
     {
         return isProcessing ? "Processing..." : "Enter command or /say <message> to chat...";
-    }
-
-    private string GetOppositeDirection(string direction)
-    {
-        return direction.ToLower() switch
-        {
-            "north" => "south",
-            "south" => "north",
-            "east" => "west",
-            "west" => "east",
-            _ => "somewhere"
-        };
     }
 
     public async ValueTask DisposeAsync()
